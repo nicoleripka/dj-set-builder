@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/sc-token.js": {
+    "api/*.js": {
       "runtime": "@vercel/node@3"
     }
   }
