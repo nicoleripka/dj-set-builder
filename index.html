@@ -558,16 +558,22 @@ async function handleSCCallback() {
   }
 }
 
+// Route SoundCloud API calls through our proxy to avoid CORS
+function scFetch(apiUrl) {
+  return fetch(`/api/sc-proxy?url=${encodeURIComponent(apiUrl)}`, {
+    headers: scToken ? { Authorization: `OAuth ${scToken}` } : {}
+  });
+}
+
 async function fetchSoundCloudUrl(url, clientId, status) {
   status.textContent = 'resolving url...';
   status.style.color = 'var(--text2)';
-  const headers = { Authorization: `OAuth ${scToken}` };
 
   try {
     // Try official API first, fall back to v2
-    let resolveRes = await fetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`, { headers });
+    let resolveRes = await scFetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
     if (!resolveRes.ok) {
-      resolveRes = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`, { headers });
+      resolveRes = await scFetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
     }
     if (!resolveRes.ok) throw new Error(`resolve failed (${resolveRes.status}) - check url and client id`);
     const resource = await resolveRes.json();
@@ -581,8 +587,8 @@ async function fetchSoundCloudUrl(url, clientId, status) {
         status.textContent = `fetching ${stubIds.length} track details...`;
         for (let i = 0; i < stubIds.length; i += 50) {
           const batch = stubIds.slice(i, i + 50);
-          let tRes = await fetch(`https://api.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`, { headers });
-          if (!tRes.ok) tRes = await fetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`, { headers });
+          let tRes = await scFetch(`https://api.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`);
+          if (!tRes.ok) tRes = await scFetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`);
           if (tRes.ok) {
             const full = await tRes.json();
             full.forEach(ft => { const idx = scTracks.findIndex(t => t.id === ft.id); if (idx >= 0) scTracks[idx] = ft; });
