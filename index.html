@@ -176,6 +176,14 @@ tr:hover .del{opacity:1}
       <div id="rekordboxStatus" style="margin-top:6px;font-size:11px;color:var(--text2)"></div>
     </div>
     <div class="import-card">
+      <h3>SoundCloud</h3>
+      <p>Paste a playlist or track URL. Needs a Client ID from soundcloud.com/you/apps</p>
+      <div class="field"><label>Client ID</label><input type="text" id="scClientId" placeholder="soundcloud.com/you/apps"></div>
+      <div class="field"><label>Playlist or Track URL</label><input type="text" id="scUrl" placeholder="soundcloud.com/user/sets/..."></div>
+      <button class="btn" onclick="importSoundCloud()">Import</button>
+      <div id="scStatus" style="margin-top:6px;font-size:11px;color:var(--text2)"></div>
+    </div>
+    <div class="import-card">
       <h3>Beatport</h3>
       <p>Paste track URLs or search results (one per line).</p>
       <div class="field"><textarea id="beatportInput" placeholder="Artist - Title, BPM, Key&#10;or paste Beatport CSV export"></textarea></div>
@@ -477,6 +485,79 @@ function importCSV() {
   document.getElementById('csvInput').value = '';
   toast(`imported ${count} tracks`);
   document.querySelector('[data-tab="tracks"]').click();
+}
+
+// ============================================================
+// SOUNDCLOUD IMPORT
+// ============================================================
+async function importSoundCloud() {
+  const clientId = document.getElementById('scClientId').value.trim();
+  if (!clientId) { toast('enter soundcloud client id'); return; }
+  let url = document.getElementById('scUrl').value.trim();
+  if (!url) { toast('enter a soundcloud url'); return; }
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  const status = document.getElementById('scStatus');
+  status.textContent = 'resolving url...';
+  status.style.color = 'var(--text2)';
+
+  try {
+    // Resolve the URL to get the resource
+    const resolveRes = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
+    if (!resolveRes.ok) throw new Error(`resolve failed (${resolveRes.status}) - check your client id`);
+    const resource = await resolveRes.json();
+
+    let scTracks = [];
+
+    if (resource.kind === 'playlist') {
+      // It's a playlist - extract tracks
+      scTracks = resource.tracks || [];
+      // Some tracks may be stubs, fetch full details if needed
+      const stubIds = scTracks.filter(t => !t.title && t.id).map(t => t.id);
+      if (stubIds.length > 0) {
+        status.textContent = `fetching ${stubIds.length} track details...`;
+        for (let i = 0; i < stubIds.length; i += 50) {
+          const batch = stubIds.slice(i, i + 50);
+          const tRes = await fetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`);
+          if (tRes.ok) {
+            const fullTracks = await tRes.json();
+            fullTracks.forEach(ft => {
+              const idx = scTracks.findIndex(t => t.id === ft.id);
+              if (idx >= 0) scTracks[idx] = ft;
+            });
+          }
+        }
+      }
+    } else if (resource.kind === 'track') {
+      scTracks = [resource];
+    } else {
+      throw new Error('url must be a playlist or track');
+    }
+
+    status.textContent = `importing ${scTracks.length} tracks...`;
+
+    let count = 0;
+    scTracks.forEach(t => {
+      if (!t.title) return;
+      addTrack({
+        artist: t.user?.username || t.publisher_metadata?.artist || '',
+        title: t.title || '',
+        bpm: t.bpm || 0,
+        key: t.key_signature ? parseBeatportKey(t.key_signature) : '',
+        energy: 0.5,
+        duration: Math.round((t.duration || 0) / 1000),
+      });
+      count++;
+    });
+
+    status.textContent = `${count} tracks imported`;
+    status.style.color = 'var(--green)';
+    toast(`${count} tracks from soundcloud`);
+    document.querySelector('[data-tab="tracks"]').click();
+  } catch (e) {
+    status.textContent = e.message;
+    status.style.color = 'var(--red)';
+  }
 }
 
 // ============================================================
