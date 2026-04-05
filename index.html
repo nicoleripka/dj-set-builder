@@ -8,7 +8,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#09090b;--surface:#18181b;--surface2:#27272a;--border:#27272a;
-  --text:#fafafa;--text2:#71717a;--text3:#a1a1aa;
+  --text:#fafafa;--text2:#a1a1aa;--text3:#d4d4d8;
   --accent:#e4e4e7;--green:#22c55e;--yellow:#eab308;--red:#ef4444;
 }
 body{background:var(--bg);color:var(--text);font-family:-apple-system,'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -853,7 +853,7 @@ async function importSpotify() {
   sessionStorage.setItem('spotify_verifier', cv);
   sessionStorage.setItem('spotify_client_id', clientId);
   sessionStorage.setItem('spotify_playlist_id', pid);
-  const ru = window.location.origin + window.location.pathname;
+  const ru = window.location.origin;
   window.location.href = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(ru)}&scope=playlist-read-private%20playlist-read-collaborative&code_challenge_method=S256&code_challenge=${cc}`;
 }
 
@@ -864,7 +864,7 @@ async function handleSpotifyCallback() {
   if (!cv || !ci) return;
   document.getElementById('spotifyStatus').textContent = 'authenticating...';
   try {
-    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({ client_id: ci, grant_type: 'authorization_code', code, redirect_uri: window.location.origin + window.location.pathname, code_verifier: cv }) });
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({ client_id: ci, grant_type: 'authorization_code', code, redirect_uri: window.location.origin, code_verifier: cv }) });
     const d = await r.json(); spotifyToken = d.access_token;
     window.history.replaceState({}, '', window.location.pathname);
     if (pi) { document.getElementById('spotifyClientId').value = ci; await fetchSpotifyPlaylist(pi); }
