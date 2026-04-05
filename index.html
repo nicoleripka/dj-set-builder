@@ -512,7 +512,7 @@ async function importSoundCloud() {
     sessionStorage.setItem('sc_client_id', clientId);
     sessionStorage.setItem('sc_client_secret', clientSecret);
     sessionStorage.setItem('sc_url', url);
-    const ru = window.location.origin;
+    const ru = window.location.origin + '/';
     window.location.href = `https://secure.soundcloud.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(ru)}&response_type=code&code_challenge=${cc}&code_challenge_method=S256&state=sc`;
     return;
   }
@@ -534,7 +534,7 @@ async function handleSCCallback() {
   status.textContent = 'authenticating...';
 
   try {
-    const ru = window.location.origin;
+    const ru = window.location.origin + '/';
     // Use serverless proxy to exchange token (SoundCloud requires client_secret)
     const r = await fetch('/api/sc-token', {
       method: 'POST',
@@ -993,7 +993,7 @@ async function importSpotify() {
   sessionStorage.setItem('spotify_verifier', cv);
   sessionStorage.setItem('spotify_client_id', clientId);
   sessionStorage.setItem('spotify_playlist_id', pid);
-  const ru = window.location.origin;
+  const ru = window.location.origin + '/';
   window.location.href = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(ru)}&scope=playlist-read-private%20playlist-read-collaborative&code_challenge_method=S256&code_challenge=${cc}`;
 }
 
