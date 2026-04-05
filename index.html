@@ -177,8 +177,9 @@ tr:hover .del{opacity:1}
     </div>
     <div class="import-card">
       <h3>SoundCloud</h3>
-      <p>Paste a playlist or track URL. Needs a Client ID from soundcloud.com/you/apps</p>
+      <p>Paste a playlist or track URL. Get credentials from soundcloud.com/you/apps</p>
       <div class="field"><label>Client ID</label><input type="text" id="scClientId" placeholder="soundcloud.com/you/apps"></div>
+      <div class="field"><label>Client Secret</label><input type="password" id="scClientSecret" placeholder="from your app settings"></div>
       <div class="field"><label>Playlist or Track URL</label><input type="text" id="scUrl" placeholder="soundcloud.com/user/sets/..."></div>
       <button class="btn" onclick="importSoundCloud()">Import</button>
       <div id="scStatus" style="margin-top:6px;font-size:11px;color:var(--text2)"></div>
@@ -494,7 +495,9 @@ let scToken = null;
 
 async function importSoundCloud() {
   const clientId = document.getElementById('scClientId').value.trim();
+  const clientSecret = document.getElementById('scClientSecret').value.trim();
   if (!clientId) { toast('enter soundcloud client id'); return; }
+  if (!clientSecret) { toast('enter soundcloud client secret'); return; }
   let url = document.getElementById('scUrl').value.trim();
   if (!url) { toast('enter a soundcloud url'); return; }
   if (!url.startsWith('http')) url = 'https://' + url;
@@ -507,6 +510,7 @@ async function importSoundCloud() {
     const cv = generateCodeVerifier(), cc = await generateCodeChallenge(cv);
     sessionStorage.setItem('sc_verifier', cv);
     sessionStorage.setItem('sc_client_id', clientId);
+    sessionStorage.setItem('sc_client_secret', clientSecret);
     sessionStorage.setItem('sc_url', url);
     const ru = window.location.origin;
     window.location.href = `https://secure.soundcloud.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(ru)}&response_type=code&code_challenge=${cc}&code_challenge_method=S256&state=sc`;
@@ -522,24 +526,27 @@ async function handleSCCallback() {
   const code = params.get('code');
   const cv = sessionStorage.getItem('sc_verifier');
   const ci = sessionStorage.getItem('sc_client_id');
+  const cs = sessionStorage.getItem('sc_client_secret');
   const scUrl = sessionStorage.getItem('sc_url');
-  if (!cv || !ci) return;
+  if (!cv || !ci || !cs) return;
 
   const status = document.getElementById('scStatus');
   status.textContent = 'authenticating...';
 
   try {
     const ru = window.location.origin;
-    const r = await fetch('https://secure.soundcloud.com/oauth/token', {
+    // Use serverless proxy to exchange token (SoundCloud requires client_secret)
+    const r = await fetch('/api/sc-token', {
       method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({ client_id: ci, grant_type: 'authorization_code', code, redirect_uri: ru, code_verifier: cv })
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ client_id: ci, client_secret: cs, code, redirect_uri: ru, code_verifier: cv })
     });
-    if (!r.ok) throw new Error(`auth failed (${r.status})`);
+    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || `auth failed (${r.status})`); }
     const d = await r.json();
     scToken = d.access_token;
     window.history.replaceState({}, '', window.location.pathname);
     document.getElementById('scClientId').value = ci;
+    document.getElementById('scClientSecret').value = cs;
     document.getElementById('scUrl').value = scUrl || '';
 
     if (scUrl) await fetchSoundCloudUrl(scUrl, ci, status);
