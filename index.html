@@ -541,8 +541,9 @@ async function handleSCCallback() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ client_id: ci, client_secret: cs, code, redirect_uri: ru, code_verifier: cv })
     });
-    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || `auth failed (${r.status})`); }
+    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || err.error_description || `auth failed (${r.status})`); }
     const d = await r.json();
+    if (!d.access_token) throw new Error('no access token in response');
     scToken = d.access_token;
     window.history.replaceState({}, '', window.location.pathname);
     document.getElementById('scClientId').value = ci;
