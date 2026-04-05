@@ -162,7 +162,7 @@ tr:hover .del{opacity:1}
   <div class="import-grid">
     <div class="import-card">
       <h3>Spotify</h3>
-      <p>Paste a playlist URL. Pulls BPM, key, energy.</p>
+      <p>Paste a playlist URL. Pulls track names + duration. BPM/key via Rekordbox.</p>
       <div class="field"><label>Client ID</label><input type="text" id="spotifyClientId" placeholder="developer.spotify.com/dashboard"></div>
       <div class="field"><label>Playlist URL</label><input type="text" id="spotifyPlaylist" placeholder="open.spotify.com/playlist/..."></div>
       <button class="btn" onclick="importSpotify()">Import</button>
@@ -488,8 +488,10 @@ function importCSV() {
 }
 
 // ============================================================
-// SOUNDCLOUD IMPORT
+// SOUNDCLOUD IMPORT (OAuth PKCE)
 // ============================================================
+let scToken = null;
+
 async function importSoundCloud() {
   const clientId = document.getElementById('scClientId').value.trim();
   if (!clientId) { toast('enter soundcloud client id'); return; }
@@ -498,33 +500,84 @@ async function importSoundCloud() {
   if (!url.startsWith('http')) url = 'https://' + url;
 
   const status = document.getElementById('scStatus');
-  status.textContent = 'resolving url...';
-  status.style.color = 'var(--text2)';
+
+  // If no token, start OAuth flow
+  if (!scToken) {
+    status.textContent = 'connecting to soundcloud...';
+    const cv = generateCodeVerifier(), cc = await generateCodeChallenge(cv);
+    sessionStorage.setItem('sc_verifier', cv);
+    sessionStorage.setItem('sc_client_id', clientId);
+    sessionStorage.setItem('sc_url', url);
+    const ru = window.location.origin;
+    window.location.href = `https://secure.soundcloud.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(ru)}&response_type=code&code_challenge=${cc}&code_challenge_method=S256&state=sc`;
+    return;
+  }
+
+  await fetchSoundCloudUrl(url, clientId, status);
+}
+
+async function handleSCCallback() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('state') !== 'sc' || !params.get('code')) return;
+  const code = params.get('code');
+  const cv = sessionStorage.getItem('sc_verifier');
+  const ci = sessionStorage.getItem('sc_client_id');
+  const scUrl = sessionStorage.getItem('sc_url');
+  if (!cv || !ci) return;
+
+  const status = document.getElementById('scStatus');
+  status.textContent = 'authenticating...';
 
   try {
-    // Resolve the URL to get the resource
-    const resolveRes = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
-    if (!resolveRes.ok) throw new Error(`resolve failed (${resolveRes.status}) - check your client id`);
+    const ru = window.location.origin;
+    const r = await fetch('https://secure.soundcloud.com/oauth/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({ client_id: ci, grant_type: 'authorization_code', code, redirect_uri: ru, code_verifier: cv })
+    });
+    if (!r.ok) throw new Error(`auth failed (${r.status})`);
+    const d = await r.json();
+    scToken = d.access_token;
+    window.history.replaceState({}, '', window.location.pathname);
+    document.getElementById('scClientId').value = ci;
+    document.getElementById('scUrl').value = scUrl || '';
+
+    if (scUrl) await fetchSoundCloudUrl(scUrl, ci, status);
+    else { status.textContent = 'connected! paste a url and import'; status.style.color = 'var(--green)'; }
+  } catch (e) {
+    status.textContent = e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function fetchSoundCloudUrl(url, clientId, status) {
+  status.textContent = 'resolving url...';
+  status.style.color = 'var(--text2)';
+  const headers = { Authorization: `OAuth ${scToken}` };
+
+  try {
+    // Try official API first, fall back to v2
+    let resolveRes = await fetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`, { headers });
+    if (!resolveRes.ok) {
+      resolveRes = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`, { headers });
+    }
+    if (!resolveRes.ok) throw new Error(`resolve failed (${resolveRes.status}) - check url and client id`);
     const resource = await resolveRes.json();
 
     let scTracks = [];
 
     if (resource.kind === 'playlist') {
-      // It's a playlist - extract tracks
       scTracks = resource.tracks || [];
-      // Some tracks may be stubs, fetch full details if needed
       const stubIds = scTracks.filter(t => !t.title && t.id).map(t => t.id);
       if (stubIds.length > 0) {
         status.textContent = `fetching ${stubIds.length} track details...`;
         for (let i = 0; i < stubIds.length; i += 50) {
           const batch = stubIds.slice(i, i + 50);
-          const tRes = await fetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`);
+          let tRes = await fetch(`https://api.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`, { headers });
+          if (!tRes.ok) tRes = await fetch(`https://api-v2.soundcloud.com/tracks?ids=${batch.join(',')}&client_id=${clientId}`, { headers });
           if (tRes.ok) {
-            const fullTracks = await tRes.json();
-            fullTracks.forEach(ft => {
-              const idx = scTracks.findIndex(t => t.id === ft.id);
-              if (idx >= 0) scTracks[idx] = ft;
-            });
+            const full = await tRes.json();
+            full.forEach(ft => { const idx = scTracks.findIndex(t => t.id === ft.id); if (idx >= 0) scTracks[idx] = ft; });
           }
         }
       }
@@ -535,7 +588,6 @@ async function importSoundCloud() {
     }
 
     status.textContent = `importing ${scTracks.length} tracks...`;
-
     let count = 0;
     scTracks.forEach(t => {
       if (!t.title) return;
@@ -958,26 +1010,36 @@ async function fetchSpotifyPlaylist(pid) {
   try {
     let items = [], url = `https://api.spotify.com/v1/playlists/${pid}/tracks?limit=100`;
     while (url) { const r = await fetch(url, {headers:{Authorization:`Bearer ${spotifyToken}`}}); if(!r.ok) throw new Error(r.status); const d = await r.json(); items = items.concat(d.items); url = d.next; }
-    status.textContent = `${items.length} tracks, getting features...`;
+
+    // Try to get audio features (deprecated by Spotify late 2024, may return 403)
+    status.textContent = `${items.length} tracks, trying audio features...`;
     const ids = items.map(i => i.track?.id).filter(Boolean), feats = {};
     for (let i = 0; i < ids.length; i += 100) {
-      const r = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids.slice(i,i+100).join(',')}`, {headers:{Authorization:`Bearer ${spotifyToken}`}});
-      if (r.ok) { const d = await r.json(); d.audio_features?.forEach(f => { if(f) feats[f.id] = f; }); }
+      try {
+        const r = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids.slice(i,i+100).join(',')}`, {headers:{Authorization:`Bearer ${spotifyToken}`}});
+        if (r.ok) { const d = await r.json(); d.audio_features?.forEach(f => { if(f) feats[f.id] = f; }); }
+      } catch(e) { /* audio features deprecated, continue without */ }
     }
+
+    const hasFeatures = Object.keys(feats).length > 0;
     let c = 0;
     items.forEach(item => {
       const t = item.track; if (!t) return;
       const f = feats[t.id] || {};
-      addTrack({ artist: t.artists?.map(a=>a.name).join(', ')||'', title: t.name||'', bpm: f.tempo||0, key: spotifyKeyToCamelot(f.key,f.mode), energy: f.energy||.5, danceability: f.danceability||.5, duration: Math.round((t.duration_ms||0)/1000), spotifyId: t.id, spotifyUri: t.uri });
+      addTrack({ artist: t.artists?.map(a=>a.name).join(', ')||'', title: t.name||'', bpm: f.tempo||0, key: spotifyKeyToCamelot(f.key ?? -1, f.mode), energy: f.energy||.5, danceability: f.danceability||.5, duration: Math.round((t.duration_ms||0)/1000), spotifyId: t.id, spotifyUri: t.uri });
       c++;
     });
-    status.textContent = `${c} tracks imported`; status.style.color = 'var(--green)';
+
+    const note = hasFeatures ? '' : ' (bpm/key unavailable - spotify deprecated audio features api. use rekordbox xml for bpm/key data)';
+    status.textContent = `${c} tracks imported${note}`;
+    status.style.color = 'var(--green)';
     toast(`${c} tracks from spotify`);
     document.querySelector('[data-tab="tracks"]').click();
   } catch (e) { status.textContent = 'error: ' + e.message; status.style.color = 'var(--red)'; }
 }
 
 handleSpotifyCallback();
+handleSCCallback();
 
 // ============================================================
 // REKORDBOX XML EXPORT
