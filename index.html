@@ -570,12 +570,18 @@ async function fetchSoundCloudUrl(url, clientId, status) {
   status.style.color = 'var(--text2)';
 
   try {
-    // Try official API first, fall back to v2
-    let resolveRes = await scFetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
+    // Try with OAuth token, then with client_id, then v2 API
+    let resolveRes = await scFetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}`);
+    if (!resolveRes.ok) {
+      resolveRes = await scFetch(`https://api.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
+    }
     if (!resolveRes.ok) {
       resolveRes = await scFetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${clientId}`);
     }
-    if (!resolveRes.ok) throw new Error(`resolve failed (${resolveRes.status}) - check url and client id`);
+    if (!resolveRes.ok) {
+      const errBody = await resolveRes.json().catch(() => ({}));
+      throw new Error(`resolve failed (${resolveRes.status}): ${errBody.error || errBody.errors?.[0]?.error_message || JSON.stringify(errBody)}`);
+    }
     const resource = await resolveRes.json();
 
     let scTracks = [];
