@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>set builder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#09090b;--surface:#18181b;--surface2:#27272a;--border:#27272a;
+  --text:#fafafa;--text2:#71717a;--text3:#a1a1aa;
+  --accent:#e4e4e7;--green:#22c55e;--yellow:#eab308;--red:#ef4444;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+/* Layout */
+.app{max-width:1100px;margin:0 auto;padding:0 24px}
+.header{padding:40px 0 0;margin-bottom:32px}
+.header h1{font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--text)}
+.header p{font-size:13px;color:var(--text2);margin-top:2px}
+
+/* Nav */
+nav{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:32px}
+nav button{background:none;border:none;border-bottom:1.5px solid transparent;padding:10px 0;margin-right:24px;font-size:13px;color:var(--text2);cursor:pointer;font-family:inherit;transition:color .15s}
+nav button:hover{color:var(--text3)}
+nav button.active{color:var(--text);border-bottom-color:var(--text)}
+
+/* Sections */
+section{display:none}
+section.active{display:block}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--surface2)}
+.btn-fill{background:var(--text);color:var(--bg);border-color:var(--text)}
+.btn-fill:hover{opacity:.85;background:var(--text)}
+.btn-ghost{background:none;border:none;color:var(--text2);padding:7px 8px}
+.btn-ghost:hover{color:var(--text)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* Inputs */
+input,textarea,select{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;font-family:inherit;width:100%;outline:none;transition:border-color .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--text2)}
+input::placeholder,textarea::placeholder{color:var(--text2)}
+textarea{resize:vertical;min-height:72px;font-size:12px}
+label{font-size:11px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.field{margin-bottom:14px}
+
+/* Import cards */
+.import-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px}
+.import-card{background:var(--bg);padding:20px}
+.import-card h3{font-size:13px;font-weight:500;margin-bottom:3px}
+.import-card p{font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+
+/* Table */
+.track-table{width:100%;border-collapse:collapse}
+.track-table th{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;padding:0 12px 10px;text-align:left;cursor:pointer;user-select:none}
+.track-table th:hover{color:var(--text3)}
+.track-table td{padding:8px 12px;font-size:13px;border-top:1px solid var(--border)}
+.track-table tbody tr{transition:background .1s}
+.track-table tbody tr:hover{background:var(--surface)}
+.track-table tbody tr.dragging{opacity:.3}
+.track-table tbody tr.drag-over{box-shadow:inset 0 1px 0 var(--text)}
+
+/* Key badge */
+.key{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--surface);color:var(--text3)}
+
+/* Energy dot */
+.energy-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.e-hi{background:var(--green)}.e-mid{background:var(--yellow)}.e-lo{background:#60a5fa}
+
+/* Set list */
+.set-item{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border)}
+.set-item:last-child{border-bottom:none}
+.set-num{font-size:11px;color:var(--text2);width:20px;text-align:right;font-variant-numeric:tabular-nums}
+.set-info{flex:1;min-width:0}
+.set-info .title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set-info .artist{font-size:12px;color:var(--text2)}
+.set-meta{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
+
+/* Transition */
+.trans{display:flex;align-items:center;gap:10px;padding:4px 0 4px 34px;font-size:11px;color:var(--text2)}
+.trans-dot{width:5px;height:5px;border-radius:50%}
+.t-great{background:var(--green)}.t-good{background:var(--yellow)}.t-risky{background:var(--red)}
+.trans-type{margin-left:auto;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+
+/* Stats bar */
+.stats{display:flex;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:24px}
+.stat{flex:1;background:var(--bg);padding:14px 16px;text-align:center}
+.stat .val{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .lbl{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+
+/* Arc pills */
+.arcs{display:flex;gap:6px;margin-bottom:20px;align-items:center}
+.arcs span{font-size:11px;color:var(--text2);margin-right:8px}
+.arc{padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;background:none;border:1px solid var(--border);color:var(--text2);font-family:inherit;transition:all .15s}
+.arc:hover{color:var(--text3);border-color:var(--text2)}
+.arc.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* Viz */
+.viz-box{border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px}
+.viz-box h3{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.04em}
+canvas{width:100%;border-radius:6px}
+.camelot-wrap{display:flex;justify-content:center;padding:10px 0}
+#camelotCanvas{width:380px;height:380px}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:#000000cc;z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;width:420px;max-width:90vw;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:14px;font-weight:500;margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+
+/* Empty */
+.empty{text-align:center;padding:60px 20px}
+.empty h3{font-size:14px;font-weight:500;margin-bottom:4px}
+.empty p{font-size:12px;color:var(--text2)}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;z-index:200;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* Delete */
+.del{opacity:0;transition:opacity .1s;color:var(--text2);cursor:pointer;background:none;border:none;font-size:14px;font-family:inherit}
+tr:hover .del{opacity:1}
+.del:hover{color:var(--red)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
+
+/* Export section */
+.export-bar{border-top:1px solid var(--border);margin-top:24px;padding-top:20px;display:flex;gap:8px;align-items:center}
+.export-bar span{font-size:12px;color:var(--text2);margin-right:auto}
+
+/* Responsive */
+@media(max-width:640px){
+  .import-grid{grid-template-columns:1fr}
+  .stats{flex-wrap:wrap}
+  .stat{min-width:45%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="header">
+  <h1>set builder</h1>
+  <p><span id="trackCount">0 tracks</span></p>
+</div>
+
+<nav>
+  <button class="active" data-tab="import">import</button>
+  <button data-tab="tracks">tracks</button>
+  <button data-tab="set">set order</button>
+  <button data-tab="viz">visualize</button>
+</nav>
+
+<!-- IMPORT -->
+<section class="active" id="sec-import">
+  <div class="import-grid">
+    <div class="import-card">
+      <h3>Spotify</h3>
+      <p>Paste a playlist URL. Pulls BPM, key, energy.</p>
+      <div class="field"><label>Client ID</label><input type="text" id="spotifyClientId" placeholder="developer.spotify.com/dashboard"></div>
+      <div class="field"><label>Playlist URL</label><input type="text" id="spotifyPlaylist" placeholder="open.spotify.com/playlist/..."></div>
+      <button class="btn" onclick="importSpotify()">Import</button>
+      <div id="spotifyStatus" style="margin-top:6px;font-size:11px;color:var(--text2)"></div>
+    </div>
+    <div class="import-card">
+      <h3>Rekordbox</h3>
+      <p>Import a rekordbox XML collection file.</p>
+      <div class="field"><input type="file" id="rekordboxFile" accept=".xml" style="font-size:11px"></div>
+      <button class="btn" onclick="importRekordboxXML()">Import XML</button>
+      <div id="rekordboxStatus" style="margin-top:6px;font-size:11px;color:var(--text2)"></div>
+    </div>
+    <div class="import-card">
+      <h3>Beatport</h3>
+      <p>Paste track URLs or search results (one per line).</p>
+      <div class="field"><textarea id="beatportInput" placeholder="Artist - Title, BPM, Key&#10;or paste Beatport CSV export"></textarea></div>
+      <button class="btn" onclick="importBeatport()">Import</button>
+    </div>
+    <div class="import-card">
+      <h3>Manual / CSV</h3>
+      <p>Artist, Title, BPM, Key (one per line)</p>
+      <div class="field"><textarea id="csvInput" placeholder="Daft Punk, Around The World, 121, 7B&#10;Donna Summer, I Feel Love, 127, 4A"></textarea></div>
+      <button class="btn" onclick="importCSV()">Import</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn" onclick="showAddTrackModal()">+ add track</button>
+    <button class="btn-ghost btn" onclick="loadDemoTracks()" style="border:none">load demo set</button>
+  </div>
+</section>
+
+<!-- TRACKS -->
+<section id="sec-tracks">
+  <div id="tracksEmpty" class="empty">
+    <h3>No tracks yet</h3>
+    <p>Import from Spotify, Rekordbox, Beatport, or add manually</p>
+  </div>
+  <div id="tracksContent" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <span style="font-size:12px;color:var(--text2)" id="trackSummary"></span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="showAddTrackModal()">+ add</button>
+        <button class="btn btn-sm btn-ghost" onclick="clearAllTracks()">clear</button>
+      </div>
+    </div>
+    <table class="track-table">
+      <thead><tr>
+        <th style="width:28px">#</th>
+        <th>Artist</th>
+        <th>Title</th>
+        <th onclick="sortTracks('bpm')" style="width:60px">BPM <span id="sort-bpm"></span></th>
+        <th onclick="sortTracks('key')" style="width:50px">Key <span id="sort-key"></span></th>
+        <th onclick="sortTracks('energy')" style="width:30px">E <span id="sort-energy"></span></th>
+        <th style="width:50px">Dur</th>
+        <th style="width:24px"></th>
+      </tr></thead>
+      <tbody id="trackTableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SET ORDER -->
+<section id="sec-set">
+  <div id="setEmpty" class="empty">
+    <h3>Add tracks first</h3>
+    <p>Import some tracks, then optimize your set order here</p>
+  </div>
+  <div id="setContent" style="display:none">
+    <div class="arcs">
+      <span>arc</span>
+      <button class="arc active" data-arc="slow-build" onclick="selectArc(this)">slow build</button>
+      <button class="arc" data-arc="party" onclick="selectArc(this)">party</button>
+      <button class="arc" data-arc="dinner-dance" onclick="selectArc(this)">dinner to dance</button>
+      <button class="btn btn-fill btn-sm" onclick="optimizeSetOrder()" style="margin-left:auto">optimize</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="val" id="statTracks">0</div><div class="lbl">tracks</div></div>
+      <div class="stat"><div class="val" id="statDuration">0:00</div><div class="lbl">duration</div></div>
+      <div class="stat"><div class="val" id="statBpmRange">-</div><div class="lbl">bpm</div></div>
+      <div class="stat"><div class="val" id="statHarmonic">-</div><div class="lbl">harmonic</div></div>
+    </div>
+    <div id="setListContainer"></div>
+    <div class="export-bar">
+      <span>export</span>
+      <button class="btn btn-sm" onclick="exportRekordboxXML()">rekordbox xml</button>
+      <button class="btn btn-sm" onclick="exportTracklist()">copy tracklist</button>
+    </div>
+  </div>
+</section>
+
+<!-- VISUALIZE -->
+<section id="sec-viz">
+  <div id="vizEmpty" class="empty">
+    <h3>Nothing to visualize</h3>
+    <p>Optimize your set order first</p>
+  </div>
+  <div id="vizContent" style="display:none">
+    <div class="viz-box">
+      <h3>Energy & BPM</h3>
+      <canvas id="flowChart" height="180"></canvas>
+    </div>
+    <div class="viz-box">
+      <h3>Key Flow</h3>
+      <div class="camelot-wrap">
+        <canvas id="camelotCanvas" width="400" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /app -->
+
+<!-- ADD TRACK MODAL -->
+<div class="modal-bg" id="addTrackModal">
+  <div class="modal">
+    <h2>Add Track</h2>
+    <div class="field"><label>Artist</label><input type="text" id="mArtist" placeholder="Daft Punk"></div>
+    <div class="field"><label>Title</label><input type="text" id="mTitle" placeholder="Around The World"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>BPM</label><input type="number" id="mBpm" placeholder="121"></div>
+      <div class="field"><label>Key (Camelot)</label>
+        <select id="mKey"><option value="">-</option>
+          <option>1A</option><option>1B</option><option>2A</option><option>2B</option>
+          <option>3A</option><option>3B</option><option>4A</option><option>4B</option>
+          <option>5A</option><option>5B</option><option>6A</option><option>6B</option>
+          <option>7A</option><option>7B</option><option>8A</option><option>8B</option>
+          <option>9A</option><option>9B</option><option>10A</option><option>10B</option>
+          <option>11A</option><option>11B</option><option>12A</option><option>12B</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Energy (0-1)</label><input type="number" id="mEnergy" step="0.1" min="0" max="1" placeholder="0.7"></div>
+      <div class="field"><label>Duration (sec)</label><input type="number" id="mDuration" placeholder="240"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModals()">Cancel</button>
+      <button class="btn btn-fill" onclick="addTrackFromModal()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let tracks = [];
+let setOrder = [];
+let currentArc = 'slow-build';
+let sortField = null;
+let sortDir = 1;
+let spotifyToken = null;
+let dragRow = null;
+
+// ============================================================
+// CAMELOT WHEEL
+// ============================================================
+const CAMELOT_MAP = {
+  'Ab minor':'1A','B major':'1B','Eb minor':'2A','F# major':'2B',
+  'Bb minor':'3A','Db major':'3B','F minor':'4A','Ab major':'4B',
+  'C minor':'5A','Eb major':'5B','G minor':'6A','Bb major':'6B',
+  'D minor':'7A','F major':'7B','A minor':'8A','C major':'8B',
+  'E minor':'9A','G major':'9B','B minor':'10A','D major':'10B',
+  'F# minor':'11A','A major':'11B','Db minor':'12A','E major':'12B',
+  'C# minor':'12A','Gb major':'2B','C# major':'3B',
+};
+
+const CAMELOT_TO_MUSICAL = {};
+Object.entries(CAMELOT_MAP).forEach(([k,v]) => { if(!CAMELOT_TO_MUSICAL[v]) CAMELOT_TO_MUSICAL[v] = k; });
+
+const SPOTIFY_KEYS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+function spotifyKeyToCamelot(keyNum, mode) {
+  if (keyNum < 0 || keyNum > 11) return '';
+  return CAMELOT_MAP[SPOTIFY_KEYS[keyNum] + (mode === 1 ? ' major' : ' minor')] || '';
+}
+
+// Rekordbox key to Camelot
+const REKORDBOX_KEY_MAP = {
+  'Abm':'1A','B':'1B','Ebm':'2A','Gb':'2B','F#':'2B','Bbm':'3A','Db':'3B','C#':'3B',
+  'Fm':'4A','Ab':'4B','G#':'4B','Cm':'5A','Eb':'5B','D#':'5B','Gm':'6A','Bb':'6B','A#':'6B',
+  'Dm':'7A','F':'7B','Am':'8A','C':'8B','Em':'9A','G':'9B',
+  'Bm':'10A','D':'10B','F#m':'11A','Gbm':'11A','A':'11B','C#m':'12A','Dbm':'12A','E':'12B',
+};
+
+function harmonicScore(key1, key2) {
+  if (!key1 || !key2) return 0;
+  if (key1 === key2) return 3;
+  const n1 = parseInt(key1), l1 = key1.slice(-1);
+  const n2 = parseInt(key2), l2 = key2.slice(-1);
+  if (n1 === n2 && l1 !== l2) return 2;
+  if (l1 === l2) {
+    const diff = Math.abs(n1 - n2);
+    if (diff === 1 || diff === 11) return 2;
+    if (diff === 2 || diff === 10) return 1;
+  }
+  return 0;
+}
+
+function harmonicLabel(s) { return s >= 3 ? 'perfect' : s >= 2 ? 'great' : s >= 1 ? 'ok' : 'clash'; }
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sec-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'viz' && setOrder.length > 0) drawVisualizations();
+  });
+});
+
+// ============================================================
+// TRACKS
+// ============================================================
+function addTrack(t) {
+  tracks.push({
+    id: Date.now() + Math.random(),
+    artist: t.artist || 'Unknown', title: t.title || 'Untitled',
+    bpm: parseFloat(t.bpm) || 0, key: t.key || '',
+    energy: parseFloat(t.energy) || 0.5, danceability: parseFloat(t.danceability) || 0.5,
+    duration: parseInt(t.duration) || 210,
+    spotifyId: t.spotifyId || null, spotifyUri: t.spotifyUri || null,
+  });
+  updateUI();
+}
+
+function removeTrack(i) { tracks.splice(i, 1); setOrder = []; updateUI(); }
+function clearAllTracks() { if (!confirm('Remove all tracks?')) return; tracks = []; setOrder = []; updateUI(); }
+
+function updateUI() {
+  document.getElementById('trackCount').textContent = tracks.length + ' track' + (tracks.length !== 1 ? 's' : '');
+  renderTrackTable();
+  renderSetOrder();
+}
+
+function renderTrackTable() {
+  const empty = document.getElementById('tracksEmpty');
+  const content = document.getElementById('tracksContent');
+  if (!tracks.length) { empty.style.display = ''; content.style.display = 'none'; return; }
+  empty.style.display = 'none'; content.style.display = '';
+
+  const totalDur = tracks.reduce((s, t) => s + t.duration, 0);
+  const bpms = tracks.filter(t => t.bpm).map(t => t.bpm);
+  document.getElementById('trackSummary').textContent = `${tracks.length} tracks / ${formatTime(totalDur)}` + (bpms.length ? ` / ${Math.min(...bpms).toFixed(0)}-${Math.max(...bpms).toFixed(0)} bpm` : '');
+
+  document.getElementById('trackTableBody').innerHTML = tracks.map((t, i) => `
+    <tr draggable="true" data-idx="${i}">
+      <td style="color:var(--text2);font-size:11px;font-variant-numeric:tabular-nums">${i + 1}</td>
+      <td style="color:var(--text2)">${esc(t.artist)}</td>
+      <td>${esc(t.title)}</td>
+      <td style="font-variant-numeric:tabular-nums">${t.bpm ? t.bpm.toFixed(1) : '-'}</td>
+      <td>${t.key ? `<span class="key">${t.key}</span>` : '-'}</td>
+      <td><span class="energy-dot ${t.energy > 0.7 ? 'e-hi' : t.energy > 0.4 ? 'e-mid' : 'e-lo'}"></span></td>
+      <td style="color:var(--text2);font-size:12px">${formatTime(t.duration)}</td>
+      <td><button class="del" onclick="removeTrack(${i})">&times;</button></td>
+    </tr>
+  `).join('');
+
+  // Drag and drop
+  const tbody = document.getElementById('trackTableBody');
+  tbody.querySelectorAll('tr').forEach(row => {
+    row.addEventListener('dragstart', () => { dragRow = parseInt(row.dataset.idx); row.classList.add('dragging'); });
+    row.addEventListener('dragend', () => { row.classList.remove('dragging'); tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over')); });
+    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      const to = parseInt(row.dataset.idx);
+      if (dragRow !== null && dragRow !== to) { const [m] = tracks.splice(dragRow, 1); tracks.splice(to, 0, m); setOrder = []; updateUI(); }
+    });
+  });
+}
+
+function sortTracks(field) {
+  if (sortField === field) sortDir *= -1; else { sortField = field; sortDir = 1; }
+  tracks.sort((a, b) => { let va = a[field], vb = b[field]; return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * sortDir; });
+  document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '');
+  document.getElementById('sort-' + field).textContent = sortDir === 1 ? '\u2191' : '\u2193';
+  renderTrackTable();
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function showAddTrackModal() { document.getElementById('addTrackModal').classList.add('active'); document.getElementById('mArtist').focus(); }
+function closeModals() { document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('active')); }
+document.querySelectorAll('.modal-bg').forEach(m => { m.addEventListener('click', e => { if (e.target === m) closeModals(); }); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
+
+function addTrackFromModal() {
+  const artist = document.getElementById('mArtist').value.trim();
+  const title = document.getElementById('mTitle').value.trim();
+  if (!artist && !title) return;
+  addTrack({ artist, title, bpm: document.getElementById('mBpm').value, key: document.getElementById('mKey').value, energy: document.getElementById('mEnergy').value || 0.5, duration: document.getElementById('mDuration').value || 210 });
+  ['mArtist','mTitle','mBpm','mKey','mEnergy','mDuration'].forEach(id => document.getElementById(id).value = '');
+  closeModals(); toast('track added');
+}
+
+// ============================================================
+// CSV IMPORT
+// ============================================================
+function importCSV() {
+  const raw = document.getElementById('csvInput').value.trim();
+  if (!raw) return;
+  let count = 0;
+  raw.split('\n').filter(l => l.trim()).forEach(line => {
+    const p = line.split(',').map(s => s.trim());
+    if (p.length >= 2) { addTrack({ artist: p[0], title: p[1], bpm: p[2] || 0, key: p[3] || '', energy: p[4] || 0.5, duration: p[5] || 210 }); count++; }
+  });
+  document.getElementById('csvInput').value = '';
+  toast(`imported ${count} tracks`);
+  document.querySelector('[data-tab="tracks"]').click();
+}
+
+// ============================================================
+// BEATPORT IMPORT
+// ============================================================
+function importBeatport() {
+  const raw = document.getElementById('beatportInput').value.trim();
+  if (!raw) return;
+  let count = 0;
+  raw.split('\n').filter(l => l.trim()).forEach(line => {
+    // Try to parse "Artist - Title, BPM, Key" or tab-separated Beatport CSV
+    const parts = line.split(/[,\t]/).map(s => s.trim());
+    if (parts.length >= 1) {
+      let artist = '', title = parts[0], bpm = 0, key = '';
+      // Check if first part has " - " separator
+      const dashSplit = parts[0].split(' - ');
+      if (dashSplit.length >= 2) { artist = dashSplit[0]; title = dashSplit.slice(1).join(' - '); }
+      if (parts[1]) bpm = parseFloat(parts[1]) || 0;
+      if (parts[2]) key = parseBeatportKey(parts[2]);
+      addTrack({ artist, title, bpm, key, energy: 0.5, duration: 210 });
+      count++;
+    }
+  });
+  document.getElementById('beatportInput').value = '';
+  toast(`imported ${count} tracks`);
+  document.querySelector('[data-tab="tracks"]').click();
+}
+
+function parseBeatportKey(raw) {
+  raw = raw.trim();
+  // Already Camelot notation?
+  if (/^\d{1,2}[AB]$/i.test(raw)) return raw.toUpperCase();
+  // Try musical key: "Gb Major" -> Camelot
+  const match = raw.match(/^([A-G][#b]?)\s*(min|maj|minor|major)?/i);
+  if (match) {
+    let note = match[1], mode = (match[2] || 'major').toLowerCase();
+    if (mode.startsWith('min')) mode = 'minor'; else mode = 'major';
+    return CAMELOT_MAP[note + ' ' + mode] || raw;
+  }
+  return raw;
+}
+
+// ============================================================
+// REKORDBOX XML IMPORT
+// ============================================================
+function importRekordboxXML() {
+  const fileInput = document.getElementById('rekordboxFile');
+  const status = document.getElementById('rekordboxStatus');
+  if (!fileInput.files.length) { toast('select an XML file'); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(e.target.result, 'text/xml');
+      const xmlTracks = doc.querySelectorAll('TRACK');
+      let count = 0;
+
+      xmlTracks.forEach(t => {
+        const name = t.getAttribute('Name');
+        const artist = t.getAttribute('Artist');
+        if (!name && !artist) return;
+
+        const bpm = parseFloat(t.getAttribute('AverageBpm')) || 0;
+        const rawKey = t.getAttribute('Tonality') || '';
+        const key = REKORDBOX_KEY_MAP[rawKey] || parseBeatportKey(rawKey);
+        const dur = parseInt(t.getAttribute('TotalTime')) || 210;
+
+        addTrack({ artist: artist || '', title: name || '', bpm, key, energy: 0.5, duration: dur });
+        count++;
+      });
+
+      status.textContent = `imported ${count} tracks`;
+      status.style.color = 'var(--green)';
+      toast(`imported ${count} tracks from rekordbox`);
+      document.querySelector('[data-tab="tracks"]').click();
+    } catch (err) {
+      status.textContent = 'parse error: ' + err.message;
+      status.style.color = 'var(--red)';
+    }
+  };
+  reader.readAsText(fileInput.files[0]);
+}
+
+// ============================================================
+// DEMO
+// ============================================================
+function loadDemoTracks() {
+  tracks = []; setOrder = [];
+  [
+    {artist:'Daft Punk',title:'Around The World',bpm:121,key:'7B',energy:.79,danceability:.87,duration:427},
+    {artist:'Donna Summer',title:'I Feel Love',bpm:127.4,key:'4A',energy:.72,danceability:.78,duration:348},
+    {artist:'Disclosure',title:'Latch',bpm:121.9,key:'6B',energy:.68,danceability:.65,duration:264},
+    {artist:'Robin S',title:'Show Me Love',bpm:122,key:'5A',energy:.82,danceability:.82,duration:271},
+    {artist:'Basement Jaxx',title:'Red Alert',bpm:128,key:'8B',energy:.91,danceability:.72,duration:234},
+    {artist:'Groove Armada',title:'Superstylin\'',bpm:131,key:'7A',energy:.85,danceability:.8,duration:327},
+    {artist:'Bicep',title:'Glue',bpm:129.8,key:'9A',energy:.7,danceability:.76,duration:219},
+    {artist:'Purple Disco Machine',title:'Playbox',bpm:123,key:'6A',energy:.88,danceability:.84,duration:314},
+    {artist:'Dua Lipa',title:'Don\'t Start Now',bpm:123.9,key:'6B',energy:.8,danceability:.79,duration:183},
+    {artist:'Chic',title:'Le Freak',bpm:120.3,key:'8A',energy:.74,danceability:.91,duration:326},
+    {artist:'Lizzo',title:'Juice',bpm:120,key:'5B',energy:.76,danceability:.87,duration:209},
+    {artist:'CamelPhat',title:'Cola',bpm:123,key:'3A',energy:.66,danceability:.73,duration:278},
+    {artist:'MK',title:'17 (Route 94 Remix)',bpm:123,key:'10A',energy:.77,danceability:.8,duration:255},
+    {artist:'Peggy Gou',title:'Starry Night',bpm:124,key:'5A',energy:.73,danceability:.77,duration:345},
+    {artist:'Roisin Murphy',title:'Simulation',bpm:120,key:'11A',energy:.62,danceability:.72,duration:284},
+    {artist:'KAYTRANADA',title:'GLOWED UP',bpm:121,key:'8A',energy:.69,danceability:.81,duration:220},
+    {artist:'Franc Moody',title:'Dance Moves',bpm:118,key:'7B',energy:.83,danceability:.9,duration:237},
+    {artist:'Caribou',title:'Never Come Back',bpm:128,key:'9B',energy:.72,danceability:.68,duration:346},
+  ].forEach(d => addTrack(d));
+  toast('loaded 18 demo tracks');
+  document.querySelector('[data-tab="tracks"]').click();
+}
+
+// ============================================================
+// OPTIMIZER
+// ============================================================
+function selectArc(el) {
+  document.querySelectorAll('.arc').forEach(a => a.classList.remove('active'));
+  el.classList.add('active');
+  currentArc = el.dataset.arc;
+}
+
+function getTargetEnergyCurve(n) {
+  const c = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1 || 1);
+    if (currentArc === 'slow-build') c.push(0.3 + 0.7 * Math.sin(t * Math.PI * 0.85));
+    else if (currentArc === 'party') c.push(0.7 + 0.3 * Math.sin(t * Math.PI));
+    else c.push(t < 0.4 ? 0.3 + t * 0.5 : 0.6 + (t - 0.4) * 0.67);
+  }
+  return c;
+}
+
+function optimizeSetOrder() {
+  if (tracks.length < 2) { toast('need at least 2 tracks'); return; }
+  const n = tracks.length, tgt = getTargetEnergyCurve(n);
+  const used = new Set(), order = [];
+
+  let best = 0, bestD = Infinity;
+  tracks.forEach((t, i) => { const d = Math.abs(t.energy - tgt[0]); if (d < bestD) { bestD = d; best = i; } });
+  order.push(best); used.add(best);
+
+  for (let slot = 1; slot < n; slot++) {
+    const prev = tracks[order[slot - 1]];
+    let bi = -1, bs = -Infinity;
+    tracks.forEach((t, i) => {
+      if (used.has(i)) return;
+      let s = harmonicScore(prev.key, t.key) * 10 + Math.max(0, 10 - Math.abs(prev.bpm - t.bpm) * 1.5) + (1 - Math.abs(t.energy - tgt[slot])) * 8 + (1 - Math.abs(prev.energy - t.energy)) * 3;
+      if (s > bs) { bs = s; bi = i; }
+    });
+    order.push(bi); used.add(bi);
+  }
+
+  setOrder = order;
+  renderSetOrder();
+  toast('optimized');
+  drawVisualizations();
+}
+
+function renderSetOrder() {
+  const empty = document.getElementById('setEmpty'), content = document.getElementById('setContent');
+  if (!tracks.length) { empty.style.display = ''; content.style.display = 'none'; return; }
+  empty.style.display = 'none'; content.style.display = '';
+
+  const displayOrder = setOrder.length === tracks.length ? setOrder : tracks.map((_, i) => i);
+  const ordered = displayOrder.map(i => tracks[i]);
+  const totalDur = ordered.reduce((s, t) => s + t.duration, 0);
+  const bpms = ordered.filter(t => t.bpm > 0).map(t => t.bpm);
+  let hc = 0;
+  for (let i = 1; i < ordered.length; i++) if (harmonicScore(ordered[i-1].key, ordered[i].key) >= 2) hc++;
+
+  document.getElementById('statTracks').textContent = ordered.length;
+  document.getElementById('statDuration').textContent = formatTime(totalDur);
+  document.getElementById('statBpmRange').textContent = bpms.length ? `${Math.min(...bpms).toFixed(0)}-${Math.max(...bpms).toFixed(0)}` : '-';
+  document.getElementById('statHarmonic').textContent = ordered.length > 1 ? `${hc}/${ordered.length - 1}` : '-';
+
+  const c = document.getElementById('setListContainer');
+  let html = '';
+  ordered.forEach((t, i) => {
+    html += `<div class="set-item">
+      <div class="set-num">${i + 1}</div>
+      <div class="set-info"><div class="title">${esc(t.title)}</div><div class="artist">${esc(t.artist)}</div></div>
+      <div class="set-meta">
+        <span>${t.bpm ? t.bpm.toFixed(0) : '?'}</span>
+        ${t.key ? `<span class="key">${t.key}</span>` : ''}
+        <span class="energy-dot ${t.energy > 0.7 ? 'e-hi' : t.energy > 0.4 ? 'e-mid' : 'e-lo'}"></span>
+      </div>
+    </div>`;
+    if (i < ordered.length - 1) {
+      const next = ordered[i + 1];
+      const hs = harmonicScore(t.key, next.key);
+      const bd = next.bpm && t.bpm ? next.bpm - t.bpm : 0;
+      const total = hs + (Math.abs(bd) <= 3 ? 2 : Math.abs(bd) <= 6 ? 1 : 0);
+      const cls = total >= 4 ? 't-great' : total >= 2 ? 't-good' : 't-risky';
+      html += `<div class="trans">
+        <span class="trans-dot ${cls}"></span>
+        <span>${harmonicLabel(hs)} ${t.key && next.key ? t.key + ' \u2192 ' + next.key : ''}</span>
+        <span>${bd ? (bd > 0 ? '+' : '') + bd.toFixed(1) + ' bpm' : ''}</span>
+        <span class="trans-type">${getTransitionType(t, next, hs)}</span>
+      </div>`;
+    }
+  });
+  c.innerHTML = html;
+}
+
+function getTransitionType(a, b, hs) {
+  const d = Math.abs(a.bpm - b.bpm);
+  if (hs >= 3 && d <= 2) return 'long blend';
+  if (hs >= 2 && d <= 4) return 'smooth blend';
+  if (hs >= 2 && d <= 8) return 'filter sweep';
+  if (d > 8) return 'quick cut';
+  if (hs <= 0) return 'acapella bridge';
+  return 'eq blend';
+}
+
+// ============================================================
+// VISUALIZATIONS
+// ============================================================
+function drawVisualizations() {
+  if (!setOrder.length) return;
+  const ordered = setOrder.map(i => tracks[i]);
+  document.getElementById('vizEmpty').style.display = 'none';
+  document.getElementById('vizContent').style.display = '';
+  drawFlowChart(ordered);
+  drawCamelotWheel(ordered);
+}
+
+function drawFlowChart(ordered) {
+  const canvas = document.getElementById('flowChart');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 40; canvas.height = 180;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, n = ordered.length;
+  if (n < 2) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const pL = 36, pR = 16, pT = 20, pB = 24;
+  const pW = W - pL - pR, pH = H - pT - pB;
+  const bpms = ordered.map(t => t.bpm || 120);
+  const minB = Math.min(...bpms) - 5, maxB = Math.max(...bpms) + 5;
+
+  // Grid
+  ctx.strokeStyle = '#ffffff06'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const y = pT + (pH / 4) * i; ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke(); }
+
+  // Energy fill
+  ctx.beginPath();
+  ordered.forEach((t, i) => { const x = pL + (pW / (n - 1)) * i, y = pT + pH - t.energy * pH; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.lineTo(pL + pW, pT + pH); ctx.lineTo(pL, pT + pH); ctx.closePath();
+  const g = ctx.createLinearGradient(0, pT, 0, pT + pH);
+  g.addColorStop(0, '#ffffff12'); g.addColorStop(1, '#ffffff02');
+  ctx.fillStyle = g; ctx.fill();
+
+  // Energy line
+  ctx.beginPath();
+  ordered.forEach((t, i) => { const x = pL + (pW / (n - 1)) * i, y = pT + pH - t.energy * pH; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.strokeStyle = '#e4e4e7'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // BPM line
+  ctx.beginPath();
+  ordered.forEach((t, i) => { const x = pL + (pW / (n - 1)) * i, y = pT + pH - ((t.bpm - minB) / (maxB - minB)) * pH; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+  ctx.strokeStyle = '#71717a'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Dots
+  ordered.forEach((t, i) => {
+    const x = pL + (pW / (n - 1)) * i;
+    ctx.beginPath(); ctx.arc(x, pT + pH - t.energy * pH, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#fafafa'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, pT + pH - ((t.bpm - minB) / (maxB - minB)) * pH, 2, 0, Math.PI * 2); ctx.fillStyle = '#71717a'; ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle = '#52525b'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+  ordered.forEach((_, i) => { ctx.fillText(i + 1, pL + (pW / (n - 1)) * i, H - 6); });
+
+  // Legend
+  ctx.textAlign = 'left'; ctx.fillStyle = '#a1a1aa'; ctx.font = '9px system-ui';
+  ctx.fillStyle = '#e4e4e7'; ctx.fillRect(pL, 6, 10, 1.5);
+  ctx.fillStyle = '#a1a1aa'; ctx.fillText('energy', pL + 14, 9);
+  ctx.strokeStyle = '#71717a'; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(pL + 56, 7); ctx.lineTo(pL + 66, 7); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillText('bpm', pL + 70, 9);
+  ctx.textAlign = 'right'; ctx.fillStyle = '#52525b';
+  ctx.fillText(maxB.toFixed(0), pL - 4, pT + 4); ctx.fillText(minB.toFixed(0), pL - 4, pT + pH + 4);
+}
+
+function drawCamelotWheel(ordered) {
+  const canvas = document.getElementById('camelotCanvas');
+  const ctx = canvas.getContext('2d');
+  const S = 400; canvas.width = S; canvas.height = S;
+  const cx = S / 2, cy = S / 2;
+  ctx.clearRect(0, 0, S, S);
+
+  const oR = 170, iR = 120, cR = 70;
+  const cols = {1:'#ef4444',2:'#f97316',3:'#eab308',4:'#06b6d4',5:'#f43f5e',6:'#8b5cf6',7:'#ec4899',8:'#14b8a6',9:'#6366f1',10:'#10b981',11:'#f59e0b',12:'#e11d48'};
+
+  for (let num = 1; num <= 12; num++) {
+    const a1 = ((num - 1) / 12) * Math.PI * 2 - Math.PI / 2;
+    const a2 = (num / 12) * Math.PI * 2 - Math.PI / 2;
+    const mid = (a1 + a2) / 2;
+    const col = cols[num];
+
+    // Outer (B)
+    ctx.beginPath(); ctx.arc(cx, cy, oR, a1, a2); ctx.arc(cx, cy, iR + 3, a2, a1, true); ctx.closePath();
+    ctx.fillStyle = col + '30'; ctx.fill(); ctx.strokeStyle = col + '40'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Inner (A)
+    ctx.beginPath(); ctx.arc(cx, cy, iR, a1, a2); ctx.arc(cx, cy, cR, a2, a1, true); ctx.closePath();
+    ctx.fillStyle = col + '20'; ctx.fill(); ctx.strokeStyle = col + '35'; ctx.stroke();
+
+    // Labels
+    const rO = (oR + iR + 3) / 2, rI = (iR + cR) / 2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '500 10px system-ui';
+    ctx.fillStyle = col + 'cc'; ctx.fillText(num + 'B', cx + Math.cos(mid) * rO, cy + Math.sin(mid) * rO);
+    ctx.fillStyle = col + '99'; ctx.fillText(num + 'A', cx + Math.cos(mid) * rI, cy + Math.sin(mid) * rI);
+  }
+
+  if (ordered.filter(t => t.key).length < 2) return;
+
+  function kp(key) {
+    const n = parseInt(key), l = key.slice(-1);
+    const a1 = ((n - 1) / 12) * Math.PI * 2 - Math.PI / 2;
+    const mid = a1 + (Math.PI / 12);
+    const r = l === 'B' ? (oR + iR + 3) / 2 : (iR + cR) / 2;
+    return { x: cx + Math.cos(mid) * r, y: cy + Math.sin(mid) * r };
+  }
+
+  // Lines
+  for (let i = 0; i < ordered.length - 1; i++) {
+    const t1 = ordered[i], t2 = ordered[i + 1];
+    if (!t1.key || !t2.key) continue;
+    const p1 = kp(t1.key), p2 = kp(t2.key);
+    const hs = harmonicScore(t1.key, t2.key);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = hs >= 2 ? '#22c55e60' : hs >= 1 ? '#eab30860' : '#ef444460';
+    ctx.lineWidth = 1.5; ctx.stroke();
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    ctx.beginPath(); ctx.moveTo(p2.x, p2.y);
+    ctx.lineTo(p2.x - 6 * Math.cos(angle - 0.4), p2.y - 6 * Math.sin(angle - 0.4));
+    ctx.lineTo(p2.x - 6 * Math.cos(angle + 0.4), p2.y - 6 * Math.sin(angle + 0.4));
+    ctx.closePath(); ctx.fillStyle = ctx.strokeStyle; ctx.fill();
+  }
+
+  // Dots
+  ordered.forEach((t, i) => {
+    if (!t.key) return;
+    const p = kp(t.key);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2); ctx.fillStyle = '#09090b'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fillStyle = '#fafafa'; ctx.fill();
+    ctx.fillStyle = '#09090b'; ctx.font = '600 7px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, p.x, p.y);
+  });
+}
+
+// ============================================================
+// SPOTIFY (PKCE)
+// ============================================================
+function generateCodeVerifier() {
+  const a = new Uint8Array(64); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+async function generateCodeChallenge(v) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function importSpotify() {
+  const clientId = document.getElementById('spotifyClientId').value.trim();
+  if (!clientId) { toast('enter client id'); return; }
+  const input = document.getElementById('spotifyPlaylist').value.trim();
+  if (!input) { toast('enter playlist url'); return; }
+  let pid = input; const m = input.match(/playlist[/:]([a-zA-Z0-9]+)/); if (m) pid = m[1];
+  if (spotifyToken) { await fetchSpotifyPlaylist(pid); return; }
+
+  const cv = generateCodeVerifier(), cc = await generateCodeChallenge(cv);
+  sessionStorage.setItem('spotify_verifier', cv);
+  sessionStorage.setItem('spotify_client_id', clientId);
+  sessionStorage.setItem('spotify_playlist_id', pid);
+  const ru = window.location.origin + window.location.pathname;
+  window.location.href = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(ru)}&scope=playlist-read-private%20playlist-read-collaborative&code_challenge_method=S256&code_challenge=${cc}`;
+}
+
+async function handleSpotifyCallback() {
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (!code) return;
+  const cv = sessionStorage.getItem('spotify_verifier'), ci = sessionStorage.getItem('spotify_client_id'), pi = sessionStorage.getItem('spotify_playlist_id');
+  if (!cv || !ci) return;
+  document.getElementById('spotifyStatus').textContent = 'authenticating...';
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({ client_id: ci, grant_type: 'authorization_code', code, redirect_uri: window.location.origin + window.location.pathname, code_verifier: cv }) });
+    const d = await r.json(); spotifyToken = d.access_token;
+    window.history.replaceState({}, '', window.location.pathname);
+    if (pi) { document.getElementById('spotifyClientId').value = ci; await fetchSpotifyPlaylist(pi); }
+  } catch (e) { document.getElementById('spotifyStatus').textContent = 'auth failed'; }
+}
+
+async function fetchSpotifyPlaylist(pid) {
+  const status = document.getElementById('spotifyStatus');
+  status.textContent = 'fetching...';
+  try {
+    let items = [], url = `https://api.spotify.com/v1/playlists/${pid}/tracks?limit=100`;
+    while (url) { const r = await fetch(url, {headers:{Authorization:`Bearer ${spotifyToken}`}}); if(!r.ok) throw new Error(r.status); const d = await r.json(); items = items.concat(d.items); url = d.next; }
+    status.textContent = `${items.length} tracks, getting features...`;
+    const ids = items.map(i => i.track?.id).filter(Boolean), feats = {};
+    for (let i = 0; i < ids.length; i += 100) {
+      const r = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids.slice(i,i+100).join(',')}`, {headers:{Authorization:`Bearer ${spotifyToken}`}});
+      if (r.ok) { const d = await r.json(); d.audio_features?.forEach(f => { if(f) feats[f.id] = f; }); }
+    }
+    let c = 0;
+    items.forEach(item => {
+      const t = item.track; if (!t) return;
+      const f = feats[t.id] || {};
+      addTrack({ artist: t.artists?.map(a=>a.name).join(', ')||'', title: t.name||'', bpm: f.tempo||0, key: spotifyKeyToCamelot(f.key,f.mode), energy: f.energy||.5, danceability: f.danceability||.5, duration: Math.round((t.duration_ms||0)/1000), spotifyId: t.id, spotifyUri: t.uri });
+      c++;
+    });
+    status.textContent = `${c} tracks imported`; status.style.color = 'var(--green)';
+    toast(`${c} tracks from spotify`);
+    document.querySelector('[data-tab="tracks"]').click();
+  } catch (e) { status.textContent = 'error: ' + e.message; status.style.color = 'var(--red)'; }
+}
+
+handleSpotifyCallback();
+
+// ============================================================
+// REKORDBOX XML EXPORT
+// ============================================================
+function exportRekordboxXML() {
+  if (!tracks.length) { toast('no tracks'); return; }
+  const order = setOrder.length === tracks.length ? setOrder : tracks.map((_, i) => i);
+  const ordered = order.map(i => tracks[i]);
+  const kMap = {'1A':'Abm','1B':'B','2A':'Ebm','2B':'Gb','3A':'Bbm','3B':'Db','4A':'Fm','4B':'Ab','5A':'Cm','5B':'Eb','6A':'Gm','6B':'Bb','7A':'Dm','7B':'F','8A':'Am','8B':'C','9A':'Em','9B':'G','10A':'Bm','10B':'D','11A':'F#m','11B':'A','12A':'C#m','12B':'E'};
+
+  let xt = '', pe = '';
+  ordered.forEach((t, i) => {
+    const id = i + 1, dur = t.duration || 210, bpm = t.bpm || 120, bps = bpm / 60, bar = 4 / bps;
+    const c1 = (bar * 16).toFixed(3), c2 = (dur * 0.25).toFixed(3), c3 = Math.max(0, dur - bar * 32).toFixed(3);
+    xt += `\n    <TRACK TrackID="${id}" Name="${escXml(t.title)}" Artist="${escXml(t.artist)}" Tonality="${escXml(kMap[t.key]||'')}" AverageBpm="${bpm.toFixed(2)}" TotalTime="${dur}">
+      <POSITION_MARK Name="Mix In" Type="0" Start="${c1}" Num="0" Red="255" Green="0" Blue="0"/>
+      <POSITION_MARK Name="Drop" Type="0" Start="${c2}" Num="1" Red="0" Green="255" Blue="0"/>
+      <POSITION_MARK Name="Mix Out" Type="0" Start="${c3}" Num="2" Red="0" Green="0" Blue="255"/>
+    </TRACK>`;
+    pe += `\n      <TRACK Key="${id}"/>`;
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0.0">\n  <PRODUCT Name="rekordbox" Version="6.0.0" Company="AlphaTheta"/>\n  <COLLECTION Entries="${ordered.length}">${xt}\n  </COLLECTION>\n  <PLAYLISTS>\n    <NODE Type="0" Name="ROOT" Count="1">\n      <NODE Name="Wedding Set" Type="1" KeyType="0" Entries="${ordered.length}">${pe}\n      </NODE>\n    </NODE>\n  </PLAYLISTS>\n</DJ_PLAYLISTS>`;
+
+  downloadFile('wedding_set_rekordbox.xml', xml, 'application/xml');
+  toast('rekordbox xml downloaded');
+}
+
+function exportTracklist() {
+  const order = setOrder.length === tracks.length ? setOrder : tracks.map((_, i) => i);
+  const text = order.map((idx, i) => { const t = tracks[idx]; return `${i + 1}. ${t.artist} - ${t.title} [${t.bpm ? t.bpm.toFixed(0) : '?'} / ${t.key || '?'}]`; }).join('\n');
+  navigator.clipboard.writeText(text).then(() => toast('copied'));
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escXml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatTime(s) { return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+function downloadFile(name, content, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], {type})); a.download = name; a.click(); }
+function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2500); }
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+function saveState() { localStorage.setItem('djSetBuilder', JSON.stringify({tracks, setOrder, currentArc})); }
+function loadState() {
+  try { const s = JSON.parse(localStorage.getItem('djSetBuilder')); if (s?.tracks?.length) { tracks = s.tracks; setOrder = s.setOrder || []; currentArc = s.currentArc || 'slow-build'; updateUI(); const el = document.querySelector(`[data-arc="${currentArc}"]`); if (el) selectArc(el); } } catch(e) {}
+}
+
+const _add = addTrack, _rm = removeTrack, _opt = optimizeSetOrder;
+addTrack = function(t) { _add(t); saveState(); };
+removeTrack = function(i) { _rm(i); saveState(); };
+optimizeSetOrder = function() { _opt(); saveState(); };
+
+loadState();
+</script>
+</body>
+</html>
